@@ -40,6 +40,56 @@ This cycle continues until a satisfactory answer is produced, or Beast Mode is t
 
 ## Utilities and Supporting Modules
 
+DeepResearch relies on a collection of supporting modules that each handle a
+specific aspect of the overall workflow.  Conceptually these helpers keep the
+core loop small while allowing specialized logic to live in isolated files.
+
+### Query and Search Helpers
+
+- **`query-rewriter.ts`** – expands a user query from several cognitive
+  perspectives (skeptic, analyst, historian, etc.) and also adds recency-focused
+  variations. This diversification drives more comprehensive search results.
+- **`jina-search.ts`**, **`brave-search.ts`** and **`serper-search.ts`** –
+  implement a common interface to different search engines. Each wrapper
+  normalizes the external API so the agent can swap providers without changing
+  the main logic.
+- **`read.ts`** – fetches web pages through the Jina Reader service, returning
+  the page text and optional link or image summaries. Centralizing network reads
+  makes it easy to track tokens and deduplicate URLs.
+
+### Content Processing
+
+- **`reducer.ts`** – merges multiple partial answers into a single article by
+  removing duplicate sentences and selecting the strongest version of each idea.
+- **`research-planner.ts`** – breaks a broad topic into orthogonal sub-problems
+  so multiple bots (or iterations) can tackle them independently.
+- **`finalizer.ts`** – polishes a draft answer into a concise, opinionated style
+  as the last step before returning the result.
+- **`build-ref.ts`** – analyzes the generated answer against collected web
+  content, using embeddings to locate the most relevant quote snippets for
+  citation.
+
+### Diagnosis and Feedback
+
+- **`evaluator.ts`** – checks an answer for qualities such as definitiveness or
+  attribution and returns structured feedback.
+- **`error-analyzer.ts`** – reviews the entire reasoning trail when repeated
+  failures occur and proposes a new strategy to escape dead ends.
+
+### Infrastructure and Tracking
+
+- **`action-tracker.ts`** – records each chosen action and the agent's internal
+  "think" text so a chronological log can be reviewed later.
+- **`token-tracker.ts`** – aggregates token usage from every tool and enforces
+  the configured budget.
+- **`safe-generator.ts`** – wraps language-model calls in schema validation so
+  tool outputs are always well formed.
+- **`schemas.ts`** – contains the JSON schema definitions used across the
+  project for actions, evaluations and references.
+
+These helpers isolate complex behavior from the reasoning loop and make the
+system easier to extend in future iterations.
+
 The repository includes several helper modules to assist the main loop:
 
 - `src/tools/query-rewriter.ts` rewrites search queries from different perspectives and time filters.
@@ -79,3 +129,44 @@ The project ships with `src/app.ts`, an OpenAI-compatible HTTP API exposing `/v1
 
 The same configuration also defines model temperatures and token limits for the various tools (e.g. finalizer, query rewriter, agent beast mode).
 
+
+## Repository Structure and CLI
+
+Most logic lives inside the `src/` directory. Key entry points include:
+
+- `agent.ts` – implements the iterative reasoning loop.
+- `app.ts` and `server.ts` – provide an Express service exposing an OpenAI
+  compatible `/v1/chat/completions` endpoint with streaming support.
+- `cli.ts` – a command line wrapper. Running `npx deepresearch "question"`
+  triggers the same cycle locally.
+
+Jest tests reside in `src/__tests__` where network calls are mocked so the agent
+behavior can be validated without external APIs.
+
+## Evaluation Metrics
+
+The evaluator checks each answer for several qualities:
+
+- **definitive** – confident wording with no hedging.
+- **attribution** – cited statements must include URLs and quotes.
+- **freshness** – time sensitive questions should include recent references.
+- **completeness** – multi-part questions require all parts to be covered.
+- **strict** – used when repeated failures occur and the agent must provide an
+  improvement plan.
+
+Each failed metric decrements its `numEvalsRequired` counter until either it
+passes or Beast Mode forces a final answer.
+
+## Using DeepResearch From Other Bots
+
+Agents can leverage this project in two ways:
+
+1. Call the HTTP API from `server.ts`. Requests follow the OpenAI
+   `chat/completions` schema and return streaming delta chunks. Use the model
+   name `jina-deepsearch-v1`.
+2. Import `getResponse` or run the CLI directly. Both methods honor the
+   environment variables described above to select search and language model
+   providers.
+
+With these options, other bots can delegate complex research tasks to
+DeepResearch while retaining control of their own conversation flow.
