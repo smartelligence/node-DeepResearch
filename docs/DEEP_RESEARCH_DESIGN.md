@@ -90,6 +90,16 @@ core loop small while allowing specialized logic to live in isolated files.
 These helpers isolate complex behavior from the reasoning loop and make the
 system easier to extend in future iterations.
 
+The repository includes several helper modules to assist the main loop:
+
+- `src/tools/query-rewriter.ts` rewrites search queries from different perspectives and time filters.
+- `src/tools/read.ts` fetches webpages via Jina Reader.
+- `src/utils/finalizer.ts`, `src/utils/reducer.ts`, and `src/utils/research-planner.ts` help refine answers, merge partial results, and break down complex research tasks.
+- `src/app.ts` provides an OpenAI-compatible HTTP endpoint for using the agent as a service.
+- `src/tools/jina-search.ts`, `brave-search.ts`, and `serper-search.ts` offer interchangeable search providers.
+- `src/utils/action-tracker.ts` and `token-tracker.ts` record each reasoning step and track token consumption.
+- `src/tools/error-analyzer.ts` summarizes failures when repeated bad answers occur.
+
 ## Iterative Design Considerations
 
 - **Token Budgeting** – The agent carefully tracks token usage, reserving space for a final forced answer if needed.
